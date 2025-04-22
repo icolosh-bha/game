@@ -1,84 +1,96 @@
 #include "game.hpp"
 #include <iostream>
 #include <SDL.h>
-#include <C:\Users\hangu\Downloads\SDL2_image-devel-2.8.4-mingw\SDL2_image-2.8.4\x86_64-w64-mingw32\include\SDL2\SDL_image.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include "textureManager.h"
 #include "map.h"
+#include "monster.h"
 
 SDL_Renderer* Game::renderer = nullptr;
 
-bool fileExists(const char* path) {
-    SDL_RWops* file = SDL_RWFromFile(path, "r");
-    if (file) { SDL_RWclose(file); return true; }
-    return false;
-}
+Game::Game() :
+    isRunning(false),
+    window(nullptr),
+    playerTexture(nullptr),
+    keyTexture(nullptr),
+    goalTexture(nullptr),
+    trapTexture(nullptr),
+    gameMap(nullptr),
+    monster(nullptr),
+    hasKey(false),
+    monsterActive(false)
+{
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+        std::cout << "SDL initialized successfully" << std::endl;
 
-Game::Game() : isRunning(false), window(nullptr), playerTexture(nullptr), gameMap(nullptr), hasKey(false) {}
+        // Get the current display mode
+        SDL_DisplayMode displayMode;
+        SDL_GetCurrentDisplayMode(0, &displayMode);
 
-Game::~Game() {
-    delete gameMap;
-    clean();
-}
+        // Create window with fullscreen flag
+        window = SDL_CreateWindow("Maze Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            displayMode.w, displayMode.h, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
-void Game::init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen) {
-    int flags = fullscreen ? SDL_WINDOW_FULLSCREEN : 0;
-    
-    // Khởi tạo SDL
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+        if (window) {
+            std::cout << "Window created successfully" << std::endl;
+        } else {
+            std::cout << "Failed to create window: " << SDL_GetError() << std::endl;
+        }
+
+        // Create renderer
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        if (renderer) {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            std::cout << "Renderer created successfully" << std::endl;
+        } else {
+            std::cout << "Failed to create renderer: " << SDL_GetError() << std::endl;
+        }
+
+        isRunning = true;
+    } else {
+        std::cout << "SDL initialization failed: " << SDL_GetError() << std::endl;
         isRunning = false;
-        return;
     }
 
-    // Khởi tạo SDL_image với PNG support
-    int imgFlags = IMG_INIT_PNG;
-    if (!(IMG_Init(imgFlags) & imgFlags)) {
-        std::cout << "SDL_image could not initialize! SDL_image Error: " << IMG_GetError() << std::endl;
-        isRunning = false;
-        return;
-    }
-
-    // Tạo window
-    window = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
-    if (!window) {
-        std::cout << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        isRunning = false;
-        return;
-    }
-
-    // Tạo renderer với hardware acceleration và vsync
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        std::cout << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        isRunning = false;
-        return;
-    }
-
-    // Set renderer draw color
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    
-    // Thiết lập renderer cho TextureManager
-    TextureManager::renderer = renderer;
-
-    // Load game map và player
+    // Initialize game objects
     gameMap = new Map();
+
+    // Load textures with debug messages
     playerTexture = TextureManager::LoadTexture("player.png");
+    if (!playerTexture) {
+        std::cout << "Failed to load player.png: " << SDL_GetError() << std::endl;
+    }
+
+    keyTexture = TextureManager::LoadTexture("key.png");
+    if (!keyTexture) {
+        std::cout << "Failed to load key.png: " << SDL_GetError() << std::endl;
+    }
+
+    goalTexture = TextureManager::LoadTexture("goal.png");
+    if (!goalTexture) {
+        std::cout << "Failed to load goal.png: " << SDL_GetError() << std::endl;
+    }
+
+    trapTexture = TextureManager::LoadTexture("trap.png");
+    if (!trapTexture) {
+        std::cout << "Failed to load trap.png: " << SDL_GetError() << std::endl;
+    }
+
     if (!playerTexture) {
         std::cout << "Không load được player.png: " << SDL_GetError() << std::endl;
         isRunning = false;
         return;
     }
 
-    int w, h;
-    SDL_QueryTexture(playerTexture, nullptr, nullptr, &w, &h);
-    playerRect.w = 24;  // Thu nhỏ kích thước nhân vật xuống 24x24 pixels
+    // Set up player position
+    playerRect.w = 24;
     playerRect.h = 24;
-    
-    // Tìm vị trí wall ngẫu nhiên để đặt nhân vật
+
     bool foundWall = false;
     int startRow = 0, startCol = 0;
-    
-    // Tìm vị trí wall đầu tiên
+
     for (int row = 0; row < 20 && !foundWall; row++) {
         for (int col = 0; col < 25 && !foundWall; col++) {
             if (gameMap->getTileAt(row, col) == 0) {
@@ -88,39 +100,55 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
             }
         }
     }
-    
-    // Đặt nhân vật ở vị trí wall
-    playerRect.x = startCol * 32 + 4;  // Căn giữa nhân vật trong ô
+
+    playerRect.x = startCol * 32 + 4;
     playerRect.y = startRow * 32 + 4;
 
-    isRunning = true;
+    monster = new Monster(gameMap);
+}
+
+Game::~Game() {
+    delete gameMap;
+    clean();
+    SDL_DestroyTexture(keyTexture);
+    SDL_DestroyTexture(goalTexture);
+    SDL_DestroyTexture(trapTexture);
+    SDL_Quit();
 }
 
 void Game::handleEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) isRunning = false;
+        if (event.type == SDL_QUIT) {
+            isRunning = false;
+        }
         if (event.type == SDL_KEYDOWN) {
+            // Thoát game khi nhấn ESC
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                isRunning = false;
+                return;
+            }
+
             int newX = playerRect.x;
             int newY = playerRect.y;
-            
+
             switch (event.key.keysym.sym) {
                 case SDLK_RIGHT: newX += 32; break;
                 case SDLK_LEFT:  newX -= 32; break;
                 case SDLK_UP:    newY -= 32; break;
                 case SDLK_DOWN:  newY += 32; break;
             }
-            
+
             // Kiểm tra va chạm với các ô
             int newRow = newY / 32;
             int newCol = newX / 32;
-            
+
             if (newRow >= 0 && newRow < 20 && newCol >= 0 && newCol < 25) {
                 int tile = gameMap->getTileAt(newRow, newCol);
-                
-                // Cho phép di chuyển trên wall (type 0), trap (type 3), key (type 5)
+
+                // Cho phép di chuyển trên wall (type 0), path (type 1), trap (type 3), key (type 5)
                 // và goal (type 4) nếu đã có key
-                if (tile == 0 || tile == 3 || tile == 5 || (tile == 4 && hasKey)) {
+                if (tile == 0 || tile == 1 || tile == 3 || tile == 5 || (tile == 4 && hasKey)) {
                     playerRect.x = newCol * 32 + 4;  // Căn giữa nhân vật trong ô
                     playerRect.y = newRow * 32 + 4;
                 }
@@ -133,29 +161,49 @@ void Game::update() {
     // Calculate current tile position
     int tileX = (playerRect.x + 12) / 32;
     int tileY = (playerRect.y + 12) / 32;
-    
+
     // Get the current tile type
     int currentTile = gameMap->getTileAt(tileY, tileX);
-    
+
+    // Kích hoạt quái vật ngay từ đầu
+    monsterActive = true;
+    if (monster == nullptr) {
+        std::cout << "ERROR: Monster is null!" << std::endl;
+    } else {
+        std::cout << "Monster object exists at position: " << monster->getRect()->x << ", " << monster->getRect()->y << std::endl;
+    }
+
     // If on a trap tile, reveal it and end the game
     if (currentTile == 3) {
-        gameMap->RevealTrap(tileY, tileX);
-        showMessage("BẠN ĐÃ CHẾT!");
+        // Keep the trap visible
+        showMessage("YOU DIED!");
         isRunning = false;
     }
     // If on a key tile
     else if (currentTile == 5) {
         hasKey = true;
         gameMap->UpdateTile(tileY, tileX, 1); // Change key tile to path
-        showMessage("BẠN ĐÃ LẤY ĐƯỢC CHÌA KHÓA!");
+        showMessage("YOU GOT THE KEY!");
     }
     // If on goal tile
     else if (currentTile == 4) {
         if (hasKey) {
-            showMessage("BẠN ĐÃ THẮNG TRÒ CHƠI!");
+            showMessage("CONGARLUATION! THIS GAME IS YOURS");
             isRunning = false;
         } else {
-            showMessage("BẠN CẦN LẤY CHÌA KHÓA TRƯỚC!");
+            showMessage("YOU HAVE TO TAKE THE KEY");
+        }
+    }
+
+    // Cập nhật vị trí quái vật
+    if (monsterActive && monster != nullptr) {
+        monster->update(playerRect.x, playerRect.y);
+        SDL_Rect monsterRect = *monster->getRect();
+        if (SDL_HasIntersection(&playerRect, &monsterRect)) {
+
+            showMessage("MONSTER CAUGHT YOU!");
+            isRunning = false;
+            return;
         }
     }
 }
@@ -164,6 +212,96 @@ void Game::render() {
     SDL_RenderClear(renderer);
     gameMap->Drawmap();
     SDL_RenderCopy(renderer, playerTexture, nullptr, &playerRect);
+
+    // Render monster if active
+    if (monsterActive && monster != nullptr) {
+        std::cout << "Attempting to render monster..." << std::endl;
+        monster->render();
+        std::cout << "Monster render called" << std::endl;
+    } else {
+        std::cout << "Monster not rendered: active=" << monsterActive << ", monster=" << (monster != nullptr) << std::endl;
+    }
+
+    // Lấy kích thước của key texture
+    int keyW = 0, keyH = 0;
+    SDL_QueryTexture(keyTexture, nullptr, nullptr, &keyW, &keyH);
+
+    // Tạo source rect để vẽ chi tiết của key
+    SDL_Rect src = {
+        0,      // x position trong texture
+        0,      // y position trong texture
+        keyW,   // width của phần cần vẽ
+        keyH    // height của phần cần vẽ
+    };
+
+    // Tìm vị trí tile có giá trị 5 trên map (key)
+    for (int row = 0; row < 20; row++) {
+        for (int col = 0; col < 25; col++) {
+            if (gameMap->getTileAt(row, col) == 5) {
+                // Tạo destination rect để vẽ key lên màn hình với kích thước 32x32
+                SDL_Rect dst = {
+                    col * TILE_SIZE,  // Vị trí x = col * TILE_SIZE
+                    row * TILE_SIZE,  // Vị trí y = row * TILE_SIZE
+                    TILE_SIZE,        // Kích thước bằng một tile
+                    TILE_SIZE         // Kích thước bằng một tile
+                };
+
+                // Vẽ key texture
+                SDL_RenderCopy(renderer, keyTexture, &src, &dst);
+            }
+            // Tìm vị trí tile có giá trị 4 trên map (goal)
+            else if (gameMap->getTileAt(row, col) == 4) {
+                // Tạo destination rect để vẽ goal lên màn hình với kích thước 32x32
+                SDL_Rect dst = {
+                    col * TILE_SIZE,  // Vị trí x = col * TILE_SIZE
+                    row * TILE_SIZE,  // Vị trí y = row * TILE_SIZE
+                    TILE_SIZE,        // Kích thước bằng một tile
+                    TILE_SIZE         // Kích thước bằng một tile
+                };
+
+                // Lấy kích thước của goal texture
+                int goalW = 0, goalH = 0;
+                SDL_QueryTexture(goalTexture, nullptr, nullptr, &goalW, &goalH);
+
+                // Tạo source rect để vẽ chi tiết của goal
+                SDL_Rect goalSrc = {
+                    0,      // x position trong texture
+                    0,      // y position trong texture
+                    goalW,  // width của phần cần vẽ
+                    goalH   // height của phần cần vẽ
+                };
+
+                // Vẽ goal texture
+                SDL_RenderCopy(renderer, goalTexture, &goalSrc, &dst);
+            }
+            // Tìm vị trí tile có giá trị 3 trên map (trap)
+            else if (gameMap->getTileAt(row, col) == 3) {
+                // Tạo destination rect để vẽ trap lên màn hình với kích thước 32x32
+                SDL_Rect dst = {
+                    col * TILE_SIZE,  // Vị trí x = col * TILE_SIZE
+                    row * TILE_SIZE,  // Vị trí y = row * TILE_SIZE
+                    TILE_SIZE,        // Kích thước bằng một tile
+                    TILE_SIZE         // Kích thước bằng một tile
+                };
+
+                // Lấy kích thước của trap texture
+                int trapW = 0, trapH = 0;
+                SDL_QueryTexture(trapTexture, nullptr, nullptr, &trapW, &trapH);
+
+                // Tạo source rect để vẽ chi tiết của trap
+                SDL_Rect trapSrc = {
+                    0,      // x position trong texture
+                    0,      // y position trong texture
+                    trapW,  // width của phần cần vẽ
+                    trapH   // height của phần cần vẽ
+                };
+
+                // Vẽ trap texture
+                SDL_RenderCopy(renderer, trapTexture, &trapSrc, &dst);
+            }
+        }
+    }
+
     SDL_RenderPresent(renderer);
 }
 
@@ -173,9 +311,114 @@ void Game::clean() {
     SDL_DestroyWindow(window);
     IMG_Quit();
     SDL_Quit();
+    std::cout << "Game Cleaned!" << std::endl;
 }
 
 void Game::showMessage(const char* message) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Trò chơi", message, window);
-    SDL_Delay(1000);
+    std::cout << "Message displayed: " << message << std::endl;
+
+    // Vẽ một hình chữ nhật màu đen để làm nền cho tin nhắn
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 230);
+    SDL_Rect messageBox = {
+        0,
+        0,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT
+    };
+    SDL_RenderFillRect(renderer, &messageBox);
+
+    // Khởi tạo SDL_ttf
+    if (TTF_Init() == -1) {
+        std::cout << "TTF_Init failed: " << TTF_GetError() << std::endl;
+        return;
+    }
+
+    // Mở font
+    TTF_Font* font = TTF_OpenFont("arial.ttf", 36);
+    if (!font) {
+        std::cout << "TTF_OpenFont failed: " << TTF_GetError() << std::endl;
+        TTF_Quit();
+        return;
+    }
+
+    // Tạo surface chứa text
+    SDL_Color textColor = {255, 255, 255, 255}; // Màu trắng
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, message, textColor);
+    if (!textSurface) {
+        std::cout << "TTF_RenderText_Solid failed: " << TTF_GetError() << std::endl;
+        TTF_CloseFont(font);
+        TTF_Quit();
+        return;
+    }
+
+    // Tạo texture từ surface
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if (!textTexture) {
+        std::cout << "SDL_CreateTextureFromSurface failed: " << SDL_GetError() << std::endl;
+        SDL_FreeSurface(textSurface);
+        TTF_CloseFont(font);
+        TTF_Quit();
+        return;
+    }
+
+    // Tính toán vị trí để căn giữa text
+    SDL_Rect textRect;
+    textRect.w = textSurface->w;
+    textRect.h = textSurface->h;
+    textRect.x = (SCREEN_WIDTH - textRect.w) / 2;
+    textRect.y = (SCREEN_HEIGHT - textRect.h) / 2;
+
+    // Vẽ text
+    SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+    // Giải phóng bộ nhớ
+    SDL_DestroyTexture(textTexture);
+    SDL_FreeSurface(textSurface);
+    TTF_CloseFont(font);
+    TTF_Quit();
+
+    SDL_RenderPresent(renderer);
+    SDL_Delay(3000); // Hiển thị trong 3 giây
+}
+
+void Game::init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen) {
+    int flags = 0;
+    if (fullscreen) {
+        flags = SDL_WINDOW_FULLSCREEN;
+    }
+
+    if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+        std::cout << "Subsystems Initialised!..." << std::endl;
+
+        window = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+        if (window) {
+            std::cout << "Window created!" << std::endl;
+        }
+
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        if (renderer) {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            std::cout << "Renderer created!" << std::endl;
+        }
+
+        isRunning = true;
+    } else {
+        isRunning = false;
+    }
+
+    // Load textures
+    playerTexture = TextureManager::LoadTexture("player.png");
+    keyTexture = TextureManager::LoadTexture("key.png");
+    goalTexture = TextureManager::LoadTexture("goal.png");
+    trapTexture = TextureManager::LoadTexture("trap.png");
+
+    // Initialize player position
+    playerRect.x = TILE_SIZE;
+    playerRect.y = TILE_SIZE;
+    playerRect.w = TILE_SIZE;
+    playerRect.h = TILE_SIZE;
+
+    // Initialize map
+    gameMap = new Map();
+    monster = new Monster(gameMap);
 }

@@ -1,15 +1,17 @@
 // game.hpp
-#ifndef GAME_HPP
-#define GAME_HPP
+#pragma once
+#include <SDL.h>
 
-#include <C:\Users\hangu\Downloads\SDL2-devel-2.28.5-mingw\SDL2-2.28.5\x86_64-w64-mingw32\include\SDL2\SDL.h>
-#include "map.h"
-
-// Forward declaration của lớp Map
+// Forward declarations
 class Map;
+class Monster;
 
 class Game {
 public:
+    static const int SCREEN_WIDTH = 800;  // Thêm kích thước màn hình
+    static const int SCREEN_HEIGHT = 640;
+    static const int TILE_SIZE = 32;      // Thêm kích thước tile
+
     Game();
     ~Game();
 
@@ -21,16 +23,21 @@ public:
 
     bool running() { return isRunning; }
     static SDL_Renderer* renderer; // Giữ lại biến static renderer
+    bool hasKey;
+    bool monsterActive;
+    bool gameLost;
+    bool gameWon;
 
 private:
     bool isRunning;
     SDL_Window* window;
-    // Xóa biến SDL_Renderer* renderer ở đây để tránh xung đột
     SDL_Texture* playerTexture;
+    SDL_Texture* keyTexture;
+    SDL_Texture* goalTexture;  // Thêm texture cho goal
+    SDL_Texture* trapTexture;  // Thêm texture cho trap
     SDL_Rect playerRect;
     Map* gameMap; // Sử dụng con trỏ để tránh circular dependency
-     bool hasKey;
+    Monster* monster;
+
     void showMessage(const char* message);
 };
-
-#endif
