@@ -33,8 +33,9 @@ private:
     SDL_Window* window;
     SDL_Texture* playerTexture;
     SDL_Texture* keyTexture;
-    SDL_Texture* goalTexture;  // Thêm texture cho goal
-    SDL_Texture* trapTexture;  // Thêm texture cho trap
+    SDL_Texture* goalTexture;
+    SDL_Texture* trapTexture;
+    SDL_Texture* wallTexture; // <-- Add this line
     SDL_Rect playerRect;
     Map* gameMap; // Sử dụng con trỏ để tránh circular dependency
     Monster* monster;
