@@ -1,6 +1,6 @@
-// game.hpp
 #pragma once
 #include <SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 // Forward declarations
 class Map;
@@ -20,13 +20,12 @@ public:
     void update();
     void render();
     void clean();
+    void resetPlayerPosition();  // New function to reset player position
+    void removeTrapNearPosition(int x, int y);  // New function to remove nearest trap
+    void initFont(); // Thêm khai báo hàm initFont
 
     bool running() { return isRunning; }
     static SDL_Renderer* renderer; // Giữ lại biến static renderer
-    bool hasKey;
-    bool monsterActive;
-    bool gameLost;
-    bool gameWon;
 
 private:
     bool isRunning;
@@ -35,10 +34,18 @@ private:
     SDL_Texture* keyTexture;
     SDL_Texture* goalTexture;
     SDL_Texture* trapTexture;
-    SDL_Texture* wallTexture; // <-- Add this line
+    SDL_Texture* wallTexture;
+    TTF_Font* defaultFont;
     SDL_Rect playerRect;
-    Map* gameMap; // Sử dụng con trỏ để tránh circular dependency
+    Map* gameMap;
     Monster* monster;
-
+    bool hasKey;
+    bool monsterActive;
+    int lives;
+    int initialPlayerX;
+    int initialPlayerY;
+    int initialMonsterX;
+    int initialMonsterY;
     void showMessage(const char* message);
+    bool showConfirmMessage(const char* message);
 };

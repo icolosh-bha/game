@@ -2,6 +2,7 @@
 #include "textureManager.h"
 #include "game.hpp"
 #include <iostream>
+#include <vector> // Thêm thư viện vector để sử dụng std::vector
 
 int lvl1[21][25] = {
     {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2},
@@ -21,8 +22,8 @@ int lvl1[21][25] = {
     {2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,0,2},
     {2,0,0,0,2,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,2,0,0,0,2},
     {2,0,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2},
-    {2,0,0,0,0,0,0,2,0,0,0,3,0,0,2,0,0,0,0,0,0,0,0,4,2},
-    {2,2,2,2,2,2,2,2,2,2,2,0,2,2,2,2,2,2,2,2,2,2,2,0,2},
+    {2,0,0,0,0,0,0,2,0,0,0,3,0,0,2,0,0,0,0,0,0,0,0,0,2},
+    {2,2,2,2,2,2,2,2,2,2,2,0,2,2,2,2,2,2,2,2,2,2,2,4,2},
     {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2}
 };
 
@@ -48,7 +49,12 @@ Map::Map() {
         std::cout << "Successfully loaded goal.png" << std::endl;
     }
 
-    trap = nullptr;  // Don't load trap texture initially
+    trap = TextureManager::LoadTexture("trap.png");  // Load trap texture at initialization
+    if (!trap) {
+        std::cout << "Failed to load trap.png" << std::endl;
+    } else {
+        std::cout << "Successfully loaded trap.png" << std::endl;
+    }
 
     src.x = src.y = 0;
     src.w = dest.w = 32;
@@ -56,7 +62,8 @@ Map::Map() {
     dest.x = dest.y = 0;
 
     Loadmap();
-    showTraps = false;
+    showTraps = false;  // Start with traps hidden
+    revealedTraps.clear(); // Clear revealedTraps vector
 }
 
 Map::~Map() {
@@ -88,66 +95,76 @@ void Map::UpdateTile(int row, int col, int newValue) {
 }
 
 void Map::Drawmap() {
-    // Set background color to light gray
-    SDL_SetRenderDrawColor(Game::renderer, 200, 200, 200, 255);
-    SDL_RenderClear(Game::renderer);
+    int type = 0;
 
-    for (int row = 0; row <= 20; row++) {
-        for (int col = 0; col <= 25; col++) {
-            int type = map[row][col];
+    for (int row = 0; row < 21; row++) {
+        for (int col = 0; col < 25; col++) {
+            type = map[row][col];
+
             dest.x = col * 32;
             dest.y = row * 32;
+            dest.w = 32;
+            dest.h = 32;
 
             switch (type) {
-                case 0: // wall
-                    SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
+            case 0:     // Đường đi
+                SDL_SetRenderDrawColor(Game::renderer, 255, 255, 255, 255);
+                SDL_RenderFillRect(Game::renderer, &dest);
+                break;
+            case 1:     // Path
+                SDL_SetRenderDrawColor(Game::renderer, 255, 255, 255, 255);
+                SDL_RenderFillRect(Game::renderer, &dest);
+                break;
+            case 2:     // Wall
+                if (wall) {
+                    SDL_RenderCopy(Game::renderer, wall, &src, &dest);
+                } else {
+                    SDL_SetRenderDrawColor(Game::renderer, 0, 0, 0, 255);
                     SDL_RenderFillRect(Game::renderer, &dest);
-                    if (wall) {
-                        SDL_RenderCopy(Game::renderer, wall, &src, &dest);
-                    }
-                    break;
-                case 1: // dirt
-                    SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
+                }
+                break;
+            case 3:     // Trap
+                SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
+                SDL_RenderFillRect(Game::renderer, &dest);
+
+                if ((showTraps || isTrapRevealed(row, col)) && trap) {
+                    SDL_RenderCopy(Game::renderer, trap, &src, &dest); // Hiện trap đã reveal hoặc khi showTraps = true
+                } else if (wall) {
+                     SDL_SetRenderDrawColor(Game::renderer, 255, 255, 255, 255);
+                SDL_RenderFillRect(Game::renderer, &dest);
+                }
+                break;
+            case 4:     // Goal
+                if (goal) {
+                    SDL_RenderCopy(Game::renderer, goal, &src, &dest);
+                } else {
+                    SDL_SetRenderDrawColor(Game::renderer, 0, 255, 0, 255);
                     SDL_RenderFillRect(Game::renderer, &dest);
-                    if (dirt) {
-                        SDL_RenderCopy(Game::renderer, dirt, &src, &dest);
-                    }
-                    break;
-                case 2: // cloudy
-                    SDL_SetRenderDrawColor(Game::renderer, 175, 238, 238, 255);
-                    SDL_RenderFillRect(Game::renderer, &dest);
-                    if (cloudy) {
-                        SDL_RenderCopy(Game::renderer, cloudy, &src, &dest);
-                    }
-                    break;
-                case 3: // trap
-                    SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
-                    SDL_RenderFillRect(Game::renderer, &dest);
-                    if (showTraps && trap) {
-                        SDL_RenderCopy(Game::renderer, trap, &src, &dest);
-                    } else if (wall) {
-                        SDL_RenderCopy(Game::renderer, wall, &src, &dest);
-                    }
-                    break;
-                case 4: // goal
-                    SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
-                    SDL_RenderFillRect(Game::renderer, &dest);
-                    if (goal) {
-                       // std::cout << "Rendering goal at position: (" << dest.x << ", " << dest.y << ")" << std::endl;
-                        SDL_RenderCopy(Game::renderer, goal, &src, &dest);
-                    } else {
-                        std::cout << "Goal texture is null!" << std::endl;
-                    }
-                    break;
-                case 5: // key
-                    SDL_SetRenderDrawColor(Game::renderer, 150, 75, 0, 255);
-                    SDL_RenderFillRect(Game::renderer, &dest);
-                    if (key) {
-                        SDL_RenderCopy(Game::renderer, key, &src, &dest);
-                    }
-                    break;
-                default: break;
+                }
+                break;
+            case 5:     // Key
+                SDL_SetRenderDrawColor(Game::renderer, 255, 255, 0, 255);
+                SDL_RenderFillRect(Game::renderer, &dest);
+                break;
+            default:
+                break;
             }
         }
     }
+}
+
+void Map::revealTrap(int row, int col) {
+    if (!isTrapRevealed(row, col)) {
+        revealedTraps.push_back({row, col});
+        std::cout << "Revealed trap at position: " << row << "," << col << std::endl;
+    }
+}
+
+bool Map::isTrapRevealed(int row, int col) const {
+    for (const auto& trap : revealedTraps) {
+        if (trap.first == row && trap.second == col) {
+            return true;
+        }
+    }
+    return false;
 }
