@@ -6,6 +6,9 @@
 #include "textureManager.h"
 #include "map.h"
 #include "monster.h"
+#include <C:\Users\hangu\Downloads\SDL2_mixer-devel-2.6.3-mingw\SDL2_mixer-2.6.3\x86_64-w64-mingw32\include\SDL2\SDL_mixer.h>
+#include <fstream>
+#include <string>
 
 SDL_Renderer* Game::renderer = nullptr;
 
@@ -602,4 +605,66 @@ void Game::showMessage(const char* message) {
 
     SDL_RenderPresent(renderer);
     SDL_Delay(3000); // Hiển thị trong 3 giây
+}
+
+/**
+ * Save game state to a text file
+ * @param filename The file to save to
+ */
+void Game::saveGameState(const std::string& filename) {
+    std::ofstream saveFile(filename);
+    if (!saveFile.is_open()) {
+        std::cout << "Failed to open save file: " << filename << std::endl;
+        return;
+    }
+
+    // Save player position
+    saveFile << playerRect.x << " " << playerRect.y << std::endl;
+    
+    // Save lives
+    saveFile << lives << std::endl;
+    
+    // Save key status
+    saveFile << (hasKey ? "1" : "0") << std::endl;
+    
+    saveFile.close();
+    std::cout << "Game state saved to " << filename << std::endl;
+}
+
+/**
+ * Load game state from a text file
+ * @param filename The file to load from
+ * @return true if successful, false otherwise
+ */
+bool Game::loadGameState(const std::string& filename) {
+    std::ifstream saveFile(filename);
+    if (!saveFile.is_open()) {
+        std::cout << "Failed to open save file: " << filename << std::endl;
+        return false;
+    }
+
+    // Load player position
+    saveFile >> playerRect.x >> playerRect.y;
+    
+    // Load lives
+    saveFile >> lives;
+    
+    // Load key status
+    std::string keyStatus;
+    saveFile >> keyStatus;
+    hasKey = (keyStatus == "1");
+    
+    saveFile.close();
+    std::cout << "Game state loaded from " << filename << std::endl;
+    return true;
+}
+
+/**
+ * Check if a save file exists
+ * @param filename The file to check
+ * @return true if the file exists, false otherwise
+ */
+bool Game::hasSaveFile(const std::string& filename) const {
+    std::ifstream saveFile(filename);
+    return saveFile.good();
 }

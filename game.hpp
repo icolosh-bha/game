@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <string>
 
 // Forward declarations
 class Map;
@@ -23,6 +24,11 @@ public:
     void resetPlayerPosition();  // New function to reset player position
     void removeTrapNearPosition(int x, int y);  // New function to remove nearest trap
     void initFont(); // Thêm khai báo hàm initFont
+
+    // Game state save/load functions
+    void saveGameState(const std::string& filename);
+    bool loadGameState(const std::string& filename);
+    bool hasSaveFile(const std::string& filename) const;
 
     bool running() { return isRunning; }
     static SDL_Renderer* renderer; // Giữ lại biến static renderer
