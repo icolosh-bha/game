@@ -43,6 +43,7 @@ int main(int argc, char** argv){
         case MenuOption::TOGGLE_SOUND:
           SoundManager::get().toggleMute();
           menu.setSoundLabel(SoundManager::get().isMuted() ? "Sound: OFF" : "Sound: ON");
+          menu.resetResult();
           break;
         default: break;
       }

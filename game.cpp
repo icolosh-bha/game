@@ -9,7 +9,7 @@
 #include <C:\Users\hangu\Downloads\SDL2_mixer-devel-2.6.3-mingw\SDL2_mixer-2.6.3\x86_64-w64-mingw32\include\SDL2\SDL_mixer.h>
 #include <fstream>
 #include <string>
-
+#include "soundManager.h"
 SDL_Renderer* Game::renderer = nullptr;
 
 Game::Game() :
@@ -228,15 +228,19 @@ void Game::update() {
 
         if (lives > 0) {
             if (showConfirmMessage(message)) {
+                     SoundManager::get().playMusic("assets/sounds/death.wav");
+
                 resetPlayerPosition();
               //  gameMap->setShowTraps(false); // Hide traps again
                 return;
             } else {
+                 SoundManager::get().playMusic("assets/sounds/death.wav");
                 showMessage("GAME OVER!");
                 isRunning = false;
                 return;
             }
         } else {
+             SoundManager::get().playMusic("assets/sounds/death.wav");
             showMessage("GAME OVER! No lives left!");
             isRunning = false;
             return;
@@ -254,6 +258,7 @@ void Game::update() {
     // If on goal tile
     else if (currentTile == 4) {
         if (hasKey) {
+              SoundManager::get().playMusic("assets/sounds/victory.wav");
             showMessage("CONGARLUATION! THIS GAME IS YOURS");
             isRunning = false;
         } else {
@@ -620,13 +625,13 @@ void Game::saveGameState(const std::string& filename) {
 
     // Save player position
     saveFile << playerRect.x << " " << playerRect.y << std::endl;
-    
+
     // Save lives
     saveFile << lives << std::endl;
-    
+
     // Save key status
     saveFile << (hasKey ? "1" : "0") << std::endl;
-    
+
     saveFile.close();
     std::cout << "Game state saved to " << filename << std::endl;
 }
@@ -645,15 +650,15 @@ bool Game::loadGameState(const std::string& filename) {
 
     // Load player position
     saveFile >> playerRect.x >> playerRect.y;
-    
+
     // Load lives
     saveFile >> lives;
-    
+
     // Load key status
     std::string keyStatus;
     saveFile >> keyStatus;
     hasKey = (keyStatus == "1");
-    
+
     saveFile.close();
     std::cout << "Game state loaded from " << filename << std::endl;
     return true;

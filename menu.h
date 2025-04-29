@@ -31,7 +31,9 @@ public:
 
   // Initialize font
   bool initFont(const char* fontPath, int fontSize);
-void setSoundLabel(const std::string& text);
+  void setSoundLabel(const std::string& text);
+  void resetResult();
+
 private:
   struct Button {
     SDL_Rect  rect;

@@ -62,7 +62,7 @@ Map::Map() {
     dest.x = dest.y = 0;
 
     Loadmap();
-    showTraps = false;  // Start with traps hidden
+    showTraps = false;  // Start with traps open
     revealedTraps.clear(); // Clear revealedTraps vector
 }
 
@@ -128,7 +128,7 @@ void Map::Drawmap() {
                 SDL_RenderFillRect(Game::renderer, &dest);
 
                 if ((showTraps || isTrapRevealed(row, col)) && trap) {
-                    SDL_RenderCopy(Game::renderer, trap, &src, &dest); // Hiện trap đã reveal hoặc khi showTraps = true
+                     SDL_RenderCopy(Game::renderer, trap, nullptr, &dest); // Hiện trap đã reveal hoặc khi showTraps = true
                 } else if (wall) {
                      SDL_SetRenderDrawColor(Game::renderer, 255, 255, 255, 255);
                 SDL_RenderFillRect(Game::renderer, &dest);

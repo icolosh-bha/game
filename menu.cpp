@@ -77,6 +77,8 @@ void Menu::handleEvent(const SDL_Event& e) {
   }
 }
 
+void Menu::resetResult() { result = MenuOption::NONE; }
+
 MenuOption Menu::update() {
   return result;
 }

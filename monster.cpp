@@ -139,7 +139,7 @@ void Monster::moveTowardsPlayer(int playerX, int playerY) {
     float dy = playerY - rect.y;
     float distance = std::sqrt(dx * dx + dy * dy);
 
-    const float SPEED = 0.5f;
+    const float SPEED = 0.05f;
 
     if (distance > 0) {
         dx /= distance;
