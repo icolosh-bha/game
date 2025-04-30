@@ -19,11 +19,12 @@ bool SoundManager::init() {
   return true;
 }
 
-void SoundManager::playMusic(const std::string& f){
+bool SoundManager::playMusic(const std::string& f){
   if(bg) Mix_FreeMusic(bg);
   bg = Mix_LoadMUS(f.c_str());
-  if(!bg) { std::cout<<"LoadMusic error:"<<Mix_GetError()<<"\n"; return; }
+  if(!bg) { std::cout<<"LoadMusic error:"<<Mix_GetError()<<"\n"; return false; }
   if(!muted) Mix_PlayMusic(bg,-1);
+  return true;
 }
 
 void SoundManager::playEffect(const std::string& f){

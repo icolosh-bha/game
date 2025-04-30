@@ -27,7 +27,12 @@ Game::Game() :
     monsterActive(false),
     lives(3),
     initialPlayerX(0),
-    initialPlayerY(0)
+    initialPlayerY(0),
+    hasChosenDeathOption(false),
+    hasFreezeAbility(false),
+    isMonsterFrozen(false),
+    freezeStartTime(0),
+    freezeDuration(10000) // 10 seconds in milliseconds
 {
     // Initialize SDL
     if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
@@ -141,65 +146,76 @@ Game::~Game() {
 
 void Game::handleEvents() {
     SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
+    SDL_PollEvent(&event);
+    switch (event.type) {
+        case SDL_QUIT:
             isRunning = false;
-        }
-        if (event.type == SDL_KEYDOWN) {
-            // Thoát game khi nhấn ESC
-            if (event.key.keysym.sym == SDLK_ESCAPE) {
-                isRunning = false;
-                return;
-            }
+            break;
 
-            int newX = playerRect.x;
-            int newY = playerRect.y;
-
+        case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
-                case SDLK_RIGHT: newX += 32; break;
-                case SDLK_LEFT:  newX -= 32; break;
-                case SDLK_UP:    newY -= 32; break;
-                case SDLK_DOWN:  newY += 32; break;
+                case SDLK_ESCAPE:
+                    isRunning = false;
+                    break;
+
+                case SDLK_RIGHT:
+                    playerRect.x += 32;
+                    break;
+                case SDLK_LEFT:
+                    playerRect.x -= 32;
+                    break;
+                case SDLK_UP:
+                    playerRect.y -= 32;
+                    break;
+                case SDLK_DOWN:
+                    playerRect.y += 32;
+                    break;
+                case SDLK_f:
+                    if (hasFreezeAbility && !isMonsterFrozen) {
+                        freezeMonster();
+                    }
+                    break;
             }
 
-            // Kiểm tra va chạm với các ô
-            int newRow = newY / 32;
-            int newCol = newX / 32;
+            // Sau khi tính new vị trí, cần kiểm tra hợp lệ
+            int newRow = playerRect.y / 32;
+            int newCol = playerRect.x / 32;
 
             if (newRow >= 0 && newRow < 20 && newCol >= 0 && newCol < 25) {
                 int tile = gameMap->getTileAt(newRow, newCol);
-
-                // Cho phép di chuyển trên wall (type 0), path (type 1), trap (type 3), key (type 5)
-                // và goal (type 4) nếu đã có key
-                if (tile == 0 || tile == 1 || tile == 3 || tile == 5 || (tile == 4 && hasKey)) {
-                    playerRect.x = newCol * 32 + 4;  // Căn giữa nhân vật trong ô
-                    playerRect.y = newRow * 32 + 4;
+                if (!(tile == 0 || tile == 1 || tile == 3 || tile == 5 || (tile == 4 && hasKey))) {
+                    // Không hợp lệ → revert lại
+                    playerRect.x -= (event.key.keysym.sym == SDLK_RIGHT) * 32;
+                    playerRect.x += (event.key.keysym.sym == SDLK_LEFT) * 32;
+                    playerRect.y += (event.key.keysym.sym == SDLK_UP) * 32;
+                    playerRect.y -= (event.key.keysym.sym == SDLK_DOWN) * 32;
                 }
             }
-        }
+            break;
     }
 }
 
-void Game::update() {
 
-    // Calculate current tile position
+void Game::update() {
+    // Cập nhật trạng thái freeze quái vật
+    updateMonsterFreezeState();
+
+    // Vị trí tile hiện tại của player
     int tileX = (playerRect.x + 12) / 32;
     int tileY = (playerRect.y + 12) / 32;
-
-    // Get current tile type
     int currentTile = gameMap->getTileAt(tileY, tileX);
 
-    // Kích hoạt quái vật ngay từ đầu
+    // Kích hoạt quái vật
     monsterActive = true;
     if (monster == nullptr) {
         std::cout << "ERROR: Monster is null!" << std::endl;
     }
 
-    // Check current tile effects
-    if (currentTile == 3) { // Trap tile
+    // ======================= TRAP TILE =======================
+    if (currentTile == 3) {
         lives--;
 
-        // Tìm trap gần nhất chưa reveal
+        // Reveal trap gần nhất chưa reveal
         int nearestTrapRow = -1, nearestTrapCol = -1;
         int minDist = INT_MAX;
 
@@ -216,49 +232,47 @@ void Game::update() {
             }
         }
 
-        // Reveal trap gần nhất nếu tìm thấy
         if (nearestTrapRow != -1 && nearestTrapCol != -1) {
             gameMap->revealTrap(nearestTrapRow, nearestTrapCol);
         }
-
-
 
         char message[100];
         sprintf(message, "YOU DIED!\nLives left: %d\nDo you want to continue? (Y/N)", lives);
 
         if (lives > 0) {
             if (showConfirmMessage(message)) {
-                     SoundManager::get().playMusic("assets/sounds/death.wav");
-
+                      showDeathOptionsPrompt();
+                SoundManager::get().playMusic("assets/sounds/death.wav");
                 resetPlayerPosition();
-              //  gameMap->setShowTraps(false); // Hide traps again
                 return;
             } else {
-                 SoundManager::get().playMusic("assets/sounds/death.wav");
+                SoundManager::get().playMusic("assets/sounds/death.wav");
                 showMessage("GAME OVER!");
                 isRunning = false;
                 return;
             }
         } else {
-             SoundManager::get().playMusic("assets/sounds/death.wav");
+            SoundManager::get().playMusic("assets/sounds/death.wav");
             showMessage("GAME OVER! No lives left!");
             isRunning = false;
             return;
         }
     }
-    // If on a key tile
+
+    // ======================= KEY TILE =======================
     else if (currentTile == 5) {
         hasKey = true;
-        gameMap->UpdateTile(tileY, tileX, 1); // Change key tile to path
+        gameMap->UpdateTile(tileY, tileX, 1); // Đổi tile về đường đi
         showMessage("YOU GOT THE KEY!");
         if (monster) {
             monster->setKeyStatus(true);
         }
     }
-    // If on goal tile
+
+    // ======================= GOAL TILE =======================
     else if (currentTile == 4) {
         if (hasKey) {
-              SoundManager::get().playMusic("assets/sounds/victory.wav");
+            SoundManager::get().playMusic("assets/sounds/victory.wav");
             showMessage("CONGARLUATION! THIS GAME IS YOURS");
             isRunning = false;
         } else {
@@ -266,26 +280,31 @@ void Game::update() {
         }
     }
 
-    // Cập nhật vị trí quái vật
-    if (monsterActive && monster != nullptr) {
+    // ======================= MONSTER COLLISION =======================
+    if (monsterActive && monster != nullptr && !isMonsterFrozen) {
         monster->update(playerRect.x, playerRect.y);
+
         SDL_Rect monsterRect = *monster->getRect();
         if (SDL_HasIntersection(&playerRect, &monsterRect)) {
             lives--;
 
             char message[100];
-            sprintf(message, "MONSTER CAUGHT YOU! Lives left: %d\nDo you want to continue? (Y/N)", lives);
+            sprintf(message, "MONSTER CAUGHT YOU!\nLives left: %d\nDo you want to continue? (Y/N)", lives);
 
             if (lives > 0) {
                 if (showConfirmMessage(message)) {
+                       showDeathOptionsPrompt();
+                    SoundManager::get().playMusic("assets/sounds/death.wav");
                     resetPlayerPosition();
                     return;
                 } else {
+                    SoundManager::get().playMusic("assets/sounds/death.wav");
                     showMessage("GAME OVER!");
                     isRunning = false;
                     return;
                 }
             } else {
+                SoundManager::get().playMusic("assets/sounds/death.wav");
                 showMessage("GAME OVER! No lives left!");
                 isRunning = false;
                 return;
@@ -578,7 +597,7 @@ void Game::showMessage(const char* message) {
     if (!textSurface) {
         std::cout << "TTF_RenderText_Solid failed: " << TTF_GetError() << std::endl;
         TTF_CloseFont(font);
-        TTF_Quit();
+       TTF_Quit();
         return;
     }
 
@@ -672,4 +691,188 @@ bool Game::loadGameState(const std::string& filename) {
 bool Game::hasSaveFile(const std::string& filename) const {
     std::ifstream saveFile(filename);
     return saveFile.good();
+}
+
+bool Game::showDeathOptionsPrompt() {
+    if (hasChosenDeathOption) {
+        return false; // Already chosen an option before
+    }
+
+    bool quit = false;
+    int choice = 0; // 0 = no choice, 1 = remove trap, 2 = freeze ability
+
+    // Save current screen
+    int w, h;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+    SDL_Texture* currentScreen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    SDL_SetRenderTarget(renderer, currentScreen);
+    SDL_RenderCopy(renderer, NULL, NULL, NULL);
+    SDL_SetRenderTarget(renderer, NULL);
+
+    // Create message box
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 230);
+    SDL_Rect messageBox = {
+        200,  // SCREEN_WIDTH/4
+        150,  // Adjusted position
+        400,  // SCREEN_WIDTH/2
+        300   // Adjusted height
+    };
+
+    TTF_Font* font = TTF_OpenFont("arial.ttf", 24);
+    if (!font) {
+        std::cout << "TTF_OpenFont failed: " << TTF_GetError() << std::endl;
+        return false;
+    }
+
+    while (!quit) {
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, currentScreen, NULL, NULL);
+
+        SDL_RenderFillRect(renderer, &messageBox);
+
+        // Render title
+        SDL_Color textColor = {255, 255, 255, 255};
+        const char* title = "Choose an ability:";
+        SDL_Surface* titleSurface = TTF_RenderText_Solid(font, title, textColor);
+        if (titleSurface) {
+            SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
+            if (titleTexture) {
+                SDL_Rect titleRect = {
+                    messageBox.x + (messageBox.w - titleSurface->w) / 2,
+                    messageBox.y + 20,
+                    titleSurface->w,
+                    titleSurface->h
+                };
+                SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
+                SDL_DestroyTexture(titleTexture);
+            }
+            SDL_FreeSurface(titleSurface);
+        }
+
+        // Render option 1
+        SDL_Color option1Color = (choice == 1) ? SDL_Color{255, 255, 0, 255} : textColor;
+        const char* option1 = "1. Remove the nearest trap";
+        SDL_Surface* option1Surface = TTF_RenderText_Solid(font, option1, option1Color);
+        if (option1Surface) {
+            SDL_Texture* option1Texture = SDL_CreateTextureFromSurface(renderer, option1Surface);
+            if (option1Texture) {
+                SDL_Rect option1Rect = {
+                    messageBox.x + 30,
+                    messageBox.y + 80,
+                    option1Surface->w,
+                    option1Surface->h
+                };
+                SDL_RenderCopy(renderer, option1Texture, NULL, &option1Rect);
+                SDL_DestroyTexture(option1Texture);
+            }
+            SDL_FreeSurface(option1Surface);
+        }
+
+        // Render option 2
+        SDL_Color option2Color = (choice == 2) ? SDL_Color{255, 255, 0, 255} : textColor;
+        const char* option2 = "2. Gain ability to freeze monster (press F)";
+        SDL_Surface* option2Surface = TTF_RenderText_Solid(font, option2, option2Color);
+        if (option2Surface) {
+            SDL_Texture* option2Texture = SDL_CreateTextureFromSurface(renderer, option2Surface);
+            if (option2Texture) {
+                SDL_Rect option2Rect = {
+                    messageBox.x + 30,
+                    messageBox.y + 130,
+                    option2Surface->w,
+                    option2Surface->h
+                };
+                SDL_RenderCopy(renderer, option2Texture, NULL, &option2Rect);
+                SDL_DestroyTexture(option2Texture);
+            }
+            SDL_FreeSurface(option2Surface);
+        }
+
+        // Render instructions
+        const char* instructions = "Press 1 or 2 to select, Enter to confirm";
+        SDL_Surface* instrSurface = TTF_RenderText_Solid(font, instructions, textColor);
+        if (instrSurface) {
+            SDL_Texture* instrTexture = SDL_CreateTextureFromSurface(renderer, instrSurface);
+            if (instrTexture) {
+                SDL_Rect instrRect = {
+                    messageBox.x + (messageBox.w - instrSurface->w) / 2,
+                    messageBox.y + messageBox.h - 50,
+                    instrSurface->w,
+                    instrSurface->h
+                };
+                SDL_RenderCopy(renderer, instrTexture, NULL, &instrRect);
+                SDL_DestroyTexture(instrTexture);
+            }
+            SDL_FreeSurface(instrSurface);
+        }
+
+        SDL_RenderPresent(renderer);
+
+        // Handle input
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_1:
+                        choice = 1;
+                        break;
+                    case SDLK_2:
+                        choice = 2;
+                        break;
+                    case SDLK_RETURN:
+                        if (choice > 0) {
+                            quit = true;
+                        }
+                        break;
+                    case SDLK_ESCAPE:
+                        choice = 0;
+                        quit = true;
+                        break;
+                }
+            }
+        }
+        SDL_Delay(10);
+    }
+
+    TTF_CloseFont(font);
+    SDL_DestroyTexture(currentScreen);
+
+    // Process the choice
+    if (choice == 1) {
+        // Remove nearest trap
+        int playerTileX = (playerRect.x + playerRect.w/2) / TILE_SIZE;
+        int playerTileY = (playerRect.y + playerRect.h/2) / TILE_SIZE;
+        removeTrapNearPosition(playerRect.x, playerRect.y);
+        hasChosenDeathOption = true;
+        showMessage("Nearest trap removed!");
+        return true;
+    }
+    else if (choice == 2) {
+        // Give freeze ability
+        hasFreezeAbility = true;
+        hasChosenDeathOption = true;
+       // freezeDuration = 10000; // 10 seconds in milliseconds
+        showMessage("Press F to freeze the monster for 10 seconds!");
+        return true;
+    }
+
+    return false;
+}
+
+void Game::freezeMonster() {
+    if (hasFreezeAbility && !isMonsterFrozen) {
+        isMonsterFrozen = true;
+        freezeStartTime = SDL_GetTicks();
+        hasFreezeAbility = false; // Use up the ability
+        showMessage("Monster frozen for 10 seconds!");
+    }
+}
+
+void Game::updateMonsterFreezeState() {
+    if (isMonsterFrozen) {
+        Uint32 currentTime = SDL_GetTicks();
+        if (currentTime - freezeStartTime >= freezeDuration) {
+            isMonsterFrozen = false;
+            showMessage("Monster unfrozen!");
+        }
+    }
 }

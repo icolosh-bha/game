@@ -54,4 +54,14 @@ private:
     int initialMonsterY;
     void showMessage(const char* message);
     bool showConfirmMessage(const char* message);
+    bool hasChosenDeathOption;     // Whether player has already chosen a death option
+    bool hasFreezeAbility;         // Whether player has the freeze ability
+    bool isMonsterFrozen;          // Whether monster is currently frozen
+    Uint32 freezeStartTime;        // When the freeze started
+    Uint32 freezeDuration;         // Duration of freeze in milliseconds
+
+public:
+    bool showDeathOptionsPrompt();  // Show options after first death
+    void freezeMonster();           // Freeze the monster
+    void updateMonsterFreezeState(); // Update monster freeze state based on timer
 };

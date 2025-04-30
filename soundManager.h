@@ -7,7 +7,7 @@ class SoundManager {
 public:
   static SoundManager& get();
   bool init();                     // Mix_OpenAudio
-  void playMusic(const std::string&);
+  bool playMusic(const std::string&);
   void playEffect(const std::string&);
   void toggleMute();
   bool isMuted() const { return muted; }
