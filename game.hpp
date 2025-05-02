@@ -2,10 +2,9 @@
 #include <SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <string>
-
-// Forward declarations
-class Map;
-class Monster;
+#include "map.h"
+//class Monster;
+#include "monster.h"
 
 class Game {
 public:
@@ -15,6 +14,7 @@ public:
 
     Game();
     ~Game();
+   Map* getMap() const { return gameMap; }
 
     void init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen);
     void handleEvents();
@@ -29,7 +29,7 @@ public:
     void saveGameState(const std::string& filename);
     bool loadGameState(const std::string& filename);
     bool hasSaveFile(const std::string& filename) const;
-
+  //  Map* gameMap;
     bool running() { return isRunning; }
     static SDL_Renderer* renderer; // Giữ lại biến static renderer
 
@@ -64,4 +64,5 @@ public:
     bool showDeathOptionsPrompt();  // Show options after first death
     void freezeMonster();           // Freeze the monster
     void updateMonsterFreezeState(); // Update monster freeze state based on timer
+    int showLevelSelectMenu(); // Hiển thị menu chọn level
 };

@@ -168,3 +168,29 @@ bool Map::isTrapRevealed(int row, int col) const {
     }
     return false;
 }
+
+bool Map::loadFromFile(const char* filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cout << "Failed to open map file: " << filename << std::endl;
+        return false;
+    }
+    
+    for (int row = 0; row < 21; row++) {
+        for (int col = 0; col < 25; col++) {
+            if (file.eof()) {
+                std::cout << "Map file is too small!" << std::endl;
+                file.close();
+                return false;
+            }
+            
+            int tileValue;
+            file >> tileValue;
+            map[row][col] = tileValue;
+        }
+    }
+    
+    file.close();
+    std::cout << "Map loaded successfully from: " << filename << std::endl;
+    return true;
+}

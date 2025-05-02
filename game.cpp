@@ -876,3 +876,139 @@ void Game::updateMonsterFreezeState() {
         }
     }
 }
+
+
+int Game::showLevelSelectMenu() {
+    // Khởi tạo font nếu chưa được khởi tạo
+    if (defaultFont == nullptr) {
+        initFont();
+    }
+
+    bool quit = false;
+    int selectedLevel = 1; // Mặc định chọn Level 1
+
+    // Thông tin về các level
+    const char* levelInfo[] = {
+        "EASY MODE ",
+        "HARD MODE ",
+        "ASIAN MODE "
+    };
+
+    while (!quit) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
+        // Vẽ tiêu đề
+        SDL_Color titleColor = {255, 255, 0, 255}; // Màu vàng
+        SDL_Surface* titleSurface = TTF_RenderText_Solid(defaultFont, "Please choose your map", titleColor);
+        if (titleSurface) {
+            SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
+            if (titleTexture) {
+                SDL_Rect titleRect = {
+                    (SCREEN_WIDTH - titleSurface->w) / 2,
+                    100,
+                    titleSurface->w,
+                    titleSurface->h
+                };
+                SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
+                SDL_DestroyTexture(titleTexture);
+            }
+            SDL_FreeSurface(titleSurface);
+        }
+
+        // Vẽ các lựa chọn level
+        for (int i = 0; i < 3; i++) {
+            char levelText[20];
+            sprintf(levelText, "Level %d", i + 1);
+
+            // Tô sáng lựa chọn hiện tại
+            SDL_Color textColor = (i + 1 == selectedLevel) ?
+                SDL_Color{255, 255, 0, 255} : // Màu vàng cho lựa chọn hiện tại
+                SDL_Color{255, 255, 255, 255}; // Màu trắng cho các lựa chọn khác
+
+            SDL_Surface* levelSurface = TTF_RenderText_Solid(defaultFont, levelText, textColor);
+            if (levelSurface) {
+                SDL_Texture* levelTexture = SDL_CreateTextureFromSurface(renderer, levelSurface);
+                if (levelTexture) {
+                    SDL_Rect levelRect = {
+                        (SCREEN_WIDTH - levelSurface->w) / 2,
+                        200 + i * 80,
+                        levelSurface->w,
+                        levelSurface->h
+                    };
+                    SDL_RenderCopy(renderer, levelTexture, NULL, &levelRect);
+                    SDL_DestroyTexture(levelTexture);
+                }
+                SDL_FreeSurface(levelSurface);
+            }
+
+            // Hiển thị thông tin về level
+            SDL_Color infoColor = {200, 200, 200, 255}; // Màu xám nhạt
+            SDL_Surface* infoSurface = TTF_RenderText_Solid(defaultFont, levelInfo[i], infoColor);
+            if (infoSurface) {
+                SDL_Texture* infoTexture = SDL_CreateTextureFromSurface(renderer, infoSurface);
+                if (infoTexture) {
+                    SDL_Rect infoRect = {
+                        (SCREEN_WIDTH - infoSurface->w) / 2,
+                        240 + i * 80,
+                        infoSurface->w,
+                        infoSurface->h
+                    };
+                    SDL_RenderCopy(renderer, infoTexture, NULL, &infoRect);
+                    SDL_DestroyTexture(infoTexture);
+                }
+                SDL_FreeSurface(infoSurface);
+            }
+        }
+
+        // Hiển thị hướng dẫn
+        SDL_Color guideColor = {150, 150, 150, 255};
+        const char* guideText = "Up/down arrow keys to select, Enter to confirm";
+        SDL_Surface* guideSurface = TTF_RenderText_Solid(defaultFont, guideText, guideColor);
+        if (guideSurface) {
+            SDL_Texture* guideTexture = SDL_CreateTextureFromSurface(renderer, guideSurface);
+            if (guideTexture) {
+                SDL_Rect guideRect = {
+                    (SCREEN_WIDTH - guideSurface->w) / 2,
+                    SCREEN_HEIGHT - 100,
+                    guideSurface->w,
+                    guideSurface->h
+                };
+                SDL_RenderCopy(renderer, guideTexture, NULL, &guideRect);
+                SDL_DestroyTexture(guideTexture);
+            }
+            SDL_FreeSurface(guideSurface);
+        }
+
+        SDL_RenderPresent(renderer);
+
+        // Xử lý sự kiện
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+                selectedLevel = 1; // Mặc định Level 1 nếu thoát
+            } else if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_UP:
+                        selectedLevel = (selectedLevel > 1) ? selectedLevel - 1 : 3;
+                        break;
+                    case SDLK_DOWN:
+                        selectedLevel = (selectedLevel < 3) ? selectedLevel + 1 : 1;
+                        break;
+                    case SDLK_RETURN:
+                        quit = true;
+                        break;
+                    case SDLK_ESCAPE:
+                        quit = true;
+                        selectedLevel = 1; // Mặc định Level 1 nếu nhấn Escape
+                        break;
+                }
+            }
+        }
+
+        SDL_Delay(10);
+    }
+
+    return selectedLevel;
+}
