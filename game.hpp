@@ -5,7 +5,7 @@
 #include "map.h"
 //class Monster;
 #include "monster.h"
-
+#include "menu.h"
 class Game {
 public:
     static const int SCREEN_WIDTH = 800;  // Thêm kích thước màn hình
@@ -16,7 +16,7 @@ public:
     ~Game();
    Map* getMap() const { return gameMap; }
 
-    void init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen);
+    bool init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen);
     void handleEvents();
     void update();
     void render();
@@ -34,6 +34,7 @@ public:
     static SDL_Renderer* renderer; // Giữ lại biến static renderer
 
 private:
+    Menu menu;
     bool isRunning;
     SDL_Window* window;
     SDL_Texture* playerTexture;

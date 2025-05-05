@@ -1,9 +1,10 @@
 // menu.cpp
 #include "menu.h"
+#include "textureManager.h" // Thêm include cho TextureManager
 #include <iostream>
 
 Menu::Menu(int screenW, int screenH)
- : W(screenW), H(screenH), result(MenuOption::NONE), font(nullptr)
+ : W(screenW), H(screenH), result(MenuOption::NONE), font(nullptr), backgroundTexture(nullptr)
 {
   int bw = 280;
   int bh = 60;
@@ -12,14 +13,21 @@ Menu::Menu(int screenW, int screenH)
   int y0 = (H - totalHeight) / 2;    // vertical centering
   int step = bh + gap;
   buttons = {
-    {{(W - bw) / 2+230, y0 + 0 * step, bw, bh}, MenuOption::START,        false, true,  "Start"},
-    {{(W - bw) / 2+230, y0 + 1 * step, bw, bh}, MenuOption::CONTINUE,     false, false, "Continue"},
-    {{(W - bw) / 2+230, y0 + 2 * step, bw, bh}, MenuOption::TOGGLE_SOUND, false, true,  "Sound"},
-  };
+  {{(W - bw) / 2, y0 + 0 * step, bw, bh}, MenuOption::START,        false, true,  "Start"},
+  {{(W - bw) / 2, y0 + 1 * step, bw, bh}, MenuOption::CONTINUE,     false, false, "Continue"},
+  {{(W - bw) / 2, y0 + 2 * step, bw, bh}, MenuOption::TOGGLE_SOUND, false, true,  "Sound"},
+};
+
 
   // Initialize TTF
   if (TTF_Init() == -1) {
     std::cout << "TTF_Init failed: " << TTF_GetError() << std::endl;
+  }
+
+  // Tải hình nền
+  backgroundTexture = TextureManager::LoadTexture("background.png");
+  if (!backgroundTexture) {
+    std::cout << "Failed to load menu background: " << SDL_GetError() << std::endl;
   }
 }
 
@@ -28,6 +36,13 @@ Menu::~Menu() {
     TTF_CloseFont(font);
     font = nullptr;
   }
+
+  // Giải phóng texture hình nền
+  if (backgroundTexture) {
+    SDL_DestroyTexture(backgroundTexture);
+    backgroundTexture = nullptr;
+  }
+
   TTF_Quit();
 }
 
@@ -122,8 +137,17 @@ void Menu::renderText(SDL_Renderer* renderer, const char* text, SDL_Rect* rect, 
 }
 
 void Menu::render(SDL_Renderer* R) {
-  SDL_SetRenderDrawColor(R,0,0,0,255);
+  // Xóa màn hình với màu đen
+  SDL_SetRenderDrawColor(R, 0, 0, 0, 255);
   SDL_RenderClear(R);
+
+  // Vẽ hình nền nếu có
+  if (backgroundTexture) {
+    SDL_Rect destRect = {0, 0, W, H}; // Vẽ hình nền kích thước toàn màn hình
+    SDL_RenderCopy(R, backgroundTexture, NULL, &destRect);
+  }
+
+  // Vẽ các nút
   for(auto& b:buttons){
     // Enhanced hover effect with gradient and glow
     SDL_Color baseColor, textColor;

@@ -2,7 +2,7 @@
 #include "soundManager.h"
 #include "Game.hpp"
 #include "map.h"
-
+#include "textureManager.h"
 const std::string SAVE_FILE = "save.dat";
 
 int main(int argc, char** argv) {
@@ -10,12 +10,15 @@ int main(int argc, char** argv) {
     SoundManager::get().init();
     SoundManager::get().playMusic("assets/music/background.mp3");
 
-    Menu menu(W, H);
-    menu.initFont("arial.ttf", 24);
 
     Game game;
-    menu.setContinueEnabled(game.hasSaveFile(SAVE_FILE));
+      game.init("Maze", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, W, H, false);
+    TextureManager::renderer = Game::renderer;
 
+
+    Menu menu(W, H);
+    menu.initFont("arial.ttf", 24);
+ menu.setContinueEnabled(game.hasSaveFile(SAVE_FILE));
     bool inMenu = true;
     while (game.running()) {
         if (inMenu) {

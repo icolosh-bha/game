@@ -10,9 +10,11 @@
 #include <fstream>
 #include <string>
 #include "soundManager.h"
+#include "menu.h"
 SDL_Renderer* Game::renderer = nullptr;
 
 Game::Game() :
+    menu(SCREEN_WIDTH, SCREEN_HEIGHT),
     isRunning(false),
     window(nullptr),
     playerTexture(nullptr),
@@ -354,6 +356,36 @@ void Game::render() {
         }
     }
 
+    // Hiển thị thông tin lives và key ở góc trên cùng bên phải
+
+if (defaultFont != nullptr) {
+    // Tạo văn bản hiển thị cả số mạng và trạng thái chìa khóa trên cùng một dòng
+    char statusText[50];
+    sprintf(statusText, "Lives: %d | Key: %s", lives, hasKey ? "Yes" : "No");
+
+  SDL_Color textColor = { 255, 215, 0, 255 }; // Màu vàng gold
+
+    // Giảm kích thước chữ bằng cách chọn một font nhỏ hơn
+    TTF_Font* smallFont = TTF_OpenFont("arial.ttf", 22); // Giảm kích thước phông chữ
+    if (!smallFont) {
+        std::cout << "TTF_OpenFont failed: " << TTF_GetError() << std::endl;
+        return;
+    }
+
+    SDL_Surface* statusSurface = TTF_RenderText_Solid(smallFont, statusText, textColor);
+    if (statusSurface) {
+        SDL_Texture* statusTexture = SDL_CreateTextureFromSurface(renderer, statusSurface);
+        if (statusTexture) {
+            SDL_Rect statusRect = { SCREEN_WIDTH - statusSurface->w - 10, 10, statusSurface->w, statusSurface->h };
+            SDL_RenderCopy(renderer, statusTexture, nullptr, &statusRect);
+            SDL_DestroyTexture(statusTexture);
+        }
+        SDL_FreeSurface(statusSurface);
+    }
+
+    // Đóng font sau khi sử dụng
+    TTF_CloseFont(smallFont);
+}
     SDL_RenderPresent(renderer);
 }
 
@@ -385,7 +417,7 @@ void Game::initFont() {
     }
 }
 
-void Game::init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen) {
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen) {
     int flags = 0;
     if (fullscreen) {
         flags = SDL_WINDOW_FULLSCREEN;
@@ -395,14 +427,14 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
     window = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
     if (window == nullptr) {
         std::cout << "Window creation failed: " << SDL_GetError() << std::endl;
-        return;
+        return false;
     }
 
     // Tạo renderer
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == nullptr) {
         std::cout << "Renderer creation failed: " << SDL_GetError() << std::endl;
-        return;
+        return false;
     }
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -429,10 +461,15 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
     }
     monster = new Monster(gameMap);
     if (monster != nullptr) {
-    SDL_Rect* mRect = monster->getRect();
-    initialMonsterX = mRect->x;
-    initialMonsterY = mRect->y;
-}
+        SDL_Rect* mRect = monster->getRect();
+        initialMonsterX = mRect->x;
+        initialMonsterY = mRect->y;
+    }
+
+    // Khởi tạo menu
+    menu.initFont("arial.ttf", 24); // Đảm bảo font được load
+
+    return true;
 }
 
 void Game::resetPlayerPosition() {
