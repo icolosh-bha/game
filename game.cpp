@@ -98,7 +98,11 @@ Game::Game() :
         isRunning = false;
         return;
     }
-
+    backgroundTexture=TextureManager::LoadTexture("background.png");
+    if(!backgroundTexture)
+    {
+         std::cout << "Failed to load background.png: " << SDL_GetError() << std::endl;
+    }
     // Set up player position
     playerRect.w = TILE_SIZE;
     playerRect.h = TILE_SIZE;
@@ -139,6 +143,7 @@ Game::~Game() {
     SDL_DestroyTexture(goalTexture);
     SDL_DestroyTexture(trapTexture);
     SDL_DestroyTexture(wallTexture);
+    SDL_DestroyTexture(backgroundTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
@@ -238,17 +243,26 @@ void Game::update() {
             gameMap->revealTrap(nearestTrapRow, nearestTrapCol);
         }
 
-        char message[100];
-        sprintf(message, "YOU DIED!\nLives left: %d\nDo you want to continue? (Y/N)", lives);
+
+            char message1[50];
+            char message2[50];
+
+            sprintf(message1, "YOU HAVE FALLEN INTO THE TRAP!");
+            sprintf(message2, "Press Y to continue or N to quit.");
+
+
+
 
         if (lives > 0) {
-            if (showConfirmMessage(message)) {
+                showMessage(message1);
+            showMessage(message2);
+            if (showConfirmMessage("")) {
                       showDeathOptionsPrompt();
-                SoundManager::get().playMusic("assets/sounds/death.wav");
+                SoundManager::get().playEffect("assets/sounds/death.wav");
                 resetPlayerPosition();
                 return;
             } else {
-                SoundManager::get().playMusic("assets/sounds/death.wav");
+                SoundManager::get().playEffect("assets/sounds/death.wav");
                 showMessage("GAME OVER!");
                 isRunning = false;
                 return;
@@ -290,11 +304,18 @@ void Game::update() {
         if (SDL_HasIntersection(&playerRect, &monsterRect)) {
             lives--;
 
-            char message[100];
-            sprintf(message, "MONSTER CAUGHT YOU!\nLives left: %d\nDo you want to continue? (Y/N)", lives);
+            char message1[50];
+            char message2[50];
+
+            sprintf(message1, "MONSTER CAUGHT YOU!");
+            sprintf(message2, "Press Y to continue or N to quit");
+
+
 
             if (lives > 0) {
-                if (showConfirmMessage(message)) {
+            showMessage(message1);
+            showMessage(message2);
+                if (showConfirmMessage("")) {
                        showDeathOptionsPrompt();
                     SoundManager::get().playMusic("assets/sounds/death.wav");
                     resetPlayerPosition();
@@ -314,7 +335,6 @@ void Game::update() {
         }
     }
 }
-
 void Game::render() {
     SDL_RenderClear(renderer);
 
@@ -446,6 +466,13 @@ bool Game::init(const char* title, int xpos, int ypos, int width, int height, bo
     goalTexture = TextureManager::LoadTexture("goal.png");
     trapTexture = TextureManager::LoadTexture("trap.png");
     wallTexture = TextureManager::LoadTexture("wall.png");
+    backgroundTexture = TextureManager::LoadTexture("background.png");
+
+    if (!backgroundTexture) {
+        std::cout << "Failed to load background.png: " << SDL_GetError() << std::endl;
+    } else {
+        std::cout << "Successfully loaded background.png" << std::endl;
+    }
 
     // Set player rect
     playerRect.w = TILE_SIZE - 8;
@@ -516,8 +543,9 @@ bool Game::showConfirmMessage(const char* message) {
             400,  // SCREEN_WIDTH/2
             213   // SCREEN_HEIGHT/3
         };
-        SDL_RenderFillRect(renderer, &messageBox);
-
+      //  SDL_RenderFillRect(renderer, &messageBox);
+SDL_Rect fullScreenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+SDL_RenderCopy(renderer, backgroundTexture, NULL, &fullScreenRect);
         // Hiển thị thông báo chính
         SDL_Color textColor = {255, 255, 255, 255};
         SDL_Surface* textSurface = TTF_RenderText_Blended_Wrapped(defaultFont, message, textColor, messageBox.w - 40);
@@ -618,8 +646,9 @@ void Game::showMessage(const char* message) {
         SCREEN_WIDTH,
         SCREEN_HEIGHT
     };
-    SDL_RenderFillRect(renderer, &messageBox);
-
+ //   SDL_RenderFillRect(renderer, &messageBox);
+SDL_Rect fullScreenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+SDL_RenderCopy(renderer, backgroundTexture, NULL, &fullScreenRect);
     // Mở font
     TTF_Font* font = TTF_OpenFont("arial.ttf", 36);
     if (!font) {
@@ -755,7 +784,9 @@ bool Game::showDeathOptionsPrompt() {
         300   // Adjusted height
     };
 
-    TTF_Font* font = TTF_OpenFont("arial.ttf", 24);
+    TTF_Font* fonttitle = TTF_OpenFont("arial.ttf", 40);
+       TTF_Font* fonthd = TTF_OpenFont("arial.ttf", 35);
+        TTF_Font* font = TTF_OpenFont("arial.ttf", 30);
     if (!font) {
         std::cout << "TTF_OpenFont failed: " << TTF_GetError() << std::endl;
         return false;
@@ -763,20 +794,19 @@ bool Game::showDeathOptionsPrompt() {
 
     while (!quit) {
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, currentScreen, NULL, NULL);
-
-        SDL_RenderFillRect(renderer, &messageBox);
+      SDL_Rect fullScreenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+SDL_RenderCopy(renderer, backgroundTexture, NULL, &fullScreenRect);
 
         // Render title
         SDL_Color textColor = {255, 255, 255, 255};
-        const char* title = "Choose an ability:";
-        SDL_Surface* titleSurface = TTF_RenderText_Solid(font, title, textColor);
+        const char* title = "You have received special ability:";
+        SDL_Surface* titleSurface = TTF_RenderText_Solid(fonttitle, title, textColor);
         if (titleSurface) {
             SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
             if (titleTexture) {
                 SDL_Rect titleRect = {
                     messageBox.x + (messageBox.w - titleSurface->w) / 2,
-                    messageBox.y + 20,
+                    messageBox.y -30,
                     titleSurface->w,
                     titleSurface->h
                 };
@@ -787,6 +817,7 @@ bool Game::showDeathOptionsPrompt() {
         }
 
         // Render option 1
+
         SDL_Color option1Color = (choice == 1) ? SDL_Color{255, 255, 0, 255} : textColor;
         const char* option1 = "1. Remove the nearest trap";
         SDL_Surface* option1Surface = TTF_RenderText_Solid(font, option1, option1Color);
@@ -794,8 +825,8 @@ bool Game::showDeathOptionsPrompt() {
             SDL_Texture* option1Texture = SDL_CreateTextureFromSurface(renderer, option1Surface);
             if (option1Texture) {
                 SDL_Rect option1Rect = {
-                    messageBox.x + 30,
-                    messageBox.y + 80,
+                    messageBox.x - 80,
+                    messageBox.y + 70,
                     option1Surface->w,
                     option1Surface->h
                 };
@@ -813,8 +844,8 @@ bool Game::showDeathOptionsPrompt() {
             SDL_Texture* option2Texture = SDL_CreateTextureFromSurface(renderer, option2Surface);
             if (option2Texture) {
                 SDL_Rect option2Rect = {
-                    messageBox.x + 30,
-                    messageBox.y + 130,
+                    messageBox.x - 80,
+                    messageBox.y + 150,
                     option2Surface->w,
                     option2Surface->h
                 };
@@ -826,12 +857,13 @@ bool Game::showDeathOptionsPrompt() {
 
         // Render instructions
         const char* instructions = "Press 1 or 2 to select, Enter to confirm";
-        SDL_Surface* instrSurface = TTF_RenderText_Solid(font, instructions, textColor);
+
+        SDL_Surface* instrSurface = TTF_RenderText_Solid(fonthd, instructions, textColor);
         if (instrSurface) {
             SDL_Texture* instrTexture = SDL_CreateTextureFromSurface(renderer, instrSurface);
             if (instrTexture) {
                 SDL_Rect instrRect = {
-                    messageBox.x + (messageBox.w - instrSurface->w) / 2,
+                    messageBox.x -100,
                     messageBox.y + messageBox.h - 50,
                     instrSurface->w,
                     instrSurface->h
@@ -871,6 +903,8 @@ bool Game::showDeathOptionsPrompt() {
     }
 
     TTF_CloseFont(font);
+    TTF_CloseFont(fonttitle);
+    TTF_CloseFont(fonthd);
     SDL_DestroyTexture(currentScreen);
 
     // Process the choice
@@ -932,9 +966,10 @@ int Game::showLevelSelectMenu() {
     };
 
     while (!quit) {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-
+     //   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+      //  SDL_RenderClear(renderer);
+SDL_Rect fullScreenRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+SDL_RenderCopy(renderer, backgroundTexture, NULL, &fullScreenRect);
         // Vẽ tiêu đề
         SDL_Color titleColor = {255, 255, 0, 255}; // Màu vàng
         SDL_Surface* titleSurface = TTF_RenderText_Solid(defaultFont, "Please choose your map", titleColor);
@@ -961,7 +996,7 @@ int Game::showLevelSelectMenu() {
             // Tô sáng lựa chọn hiện tại
             SDL_Color textColor = (i + 1 == selectedLevel) ?
                 SDL_Color{255, 255, 0, 255} : // Màu vàng cho lựa chọn hiện tại
-                SDL_Color{255, 255, 255, 255}; // Màu trắng cho các lựa chọn khác
+                SDL_Color{255, 165, 0, 255}; // Màu trắng cho các lựa chọn khác
 
             SDL_Surface* levelSurface = TTF_RenderText_Solid(defaultFont, levelText, textColor);
             if (levelSurface) {
@@ -980,7 +1015,7 @@ int Game::showLevelSelectMenu() {
             }
 
             // Hiển thị thông tin về level
-            SDL_Color infoColor = {200, 200, 200, 255}; // Màu xám nhạt
+            SDL_Color infoColor = {255, 255, 255, 255}; // Màu xám nhạt
             SDL_Surface* infoSurface = TTF_RenderText_Solid(defaultFont, levelInfo[i], infoColor);
             if (infoSurface) {
                 SDL_Texture* infoTexture = SDL_CreateTextureFromSurface(renderer, infoSurface);
@@ -999,7 +1034,7 @@ int Game::showLevelSelectMenu() {
         }
 
         // Hiển thị hướng dẫn
-        SDL_Color guideColor = {150, 150, 150, 255};
+        SDL_Color guideColor = {255, 255, 0, 255};
         const char* guideText = "Up/down arrow keys to select, Enter to confirm";
         SDL_Surface* guideSurface = TTF_RenderText_Solid(defaultFont, guideText, guideColor);
         if (guideSurface) {

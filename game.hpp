@@ -42,6 +42,7 @@ private:
     SDL_Texture* goalTexture;
     SDL_Texture* trapTexture;
     SDL_Texture* wallTexture;
+    SDL_Texture* backgroundTexture;
     TTF_Font* defaultFont;
     SDL_Rect playerRect;
     Map* gameMap;

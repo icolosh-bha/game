@@ -26,7 +26,7 @@ Menu::Menu(int screenW, int screenH)
 
   // Tải hình nền
   backgroundTexture = TextureManager::LoadTexture("background.png");
-  if (!backgroundTexture) {
+  if (backgroundTexture == NULL) {
     std::cout << "Failed to load menu background: " << SDL_GetError() << std::endl;
   }
 }

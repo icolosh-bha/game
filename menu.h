@@ -42,11 +42,13 @@ private:
     bool      enabled;
     std::string label;
   };
-  std::vector<Button> buttons;
   int W, H;
   MenuOption result;
+  std::vector<Button> buttons;
   TTF_Font* font;
+  SDL_Texture* backgroundTexture; // Texture cho hình nền
 
   // Helper function to render text
   void renderText(SDL_Renderer* renderer, const char* text, SDL_Rect* rect, SDL_Color color);
+  void renderStatus(SDL_Renderer* renderer, int lives, bool hasKey);
 };
