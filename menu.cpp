@@ -90,6 +90,7 @@ void Menu::handleEvent(const SDL_Event& e) {
       }
     }
   }
+
 }
 
 void Menu::resetResult() { result = MenuOption::NONE; }
@@ -151,7 +152,16 @@ void Menu::render(SDL_Renderer* R) {
   for(auto& b:buttons){
     // Enhanced hover effect with gradient and glow
     SDL_Color baseColor, textColor;
-
+if (font) {
+    SDL_Color titleColor = {255, 255, 255, 255};
+    SDL_Rect titleRect = {
+        (W - 300) / 2,
+        60,
+        300,
+        50
+    };
+    renderText(R, "MAZE GAME", &titleRect, titleColor);
+}
     if (!b.enabled) {
       // Disabled button
       baseColor = {50, 50, 50, 255};
